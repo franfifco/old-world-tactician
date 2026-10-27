@@ -1,6 +1,17 @@
 ---
 name: old-world-tactician
-description: Coach and rules expert for Warhammer: The Old World (TOW), the Games Workshop rank-and-flank tabletop wargame. Looks up the actual core rules, army list entries, points costs, magic items and spells from live sources; reviews and validates army lists; theorycrafts unit, item and spell combinations; scouts opponents' lists for threats and gives a game plan; and pulls tournament data from New Recruit. Use this skill whenever the user mentions The Old World, TOW, Warhammer Fantasy-style armies (Empire, Bretonnia, Dwarfs, High Elves, Dark Elves, Wood Elves, Orcs & Goblins, Tomb Kings, Vampire Counts, Warriors of Chaos, Beastmen, Daemons, Skaven, Lizardmen, Ogres, Chaos Dwarfs, Cathay, Renegade Crowns), pastes an army list, asks about a rule interaction, a matchup, a points cost, a tournament or New Recruit / Old World Builder — even if they don't say "Old World" explicitly.
+description: >-
+  Coach and rules expert for Warhammer: The Old World (TOW), the Games Workshop
+  rank-and-flank tabletop wargame. Looks up the actual core rules, army list entries,
+  points costs, magic items and spells from live sources; reviews and validates army
+  lists; theorycrafts unit, item and spell combinations; scouts opponents' lists for
+  threats and gives a game plan; and pulls tournament data from New Recruit. Use this
+  skill whenever the user mentions The Old World, TOW, Warhammer Fantasy-style armies
+  (Empire, Bretonnia, Dwarfs, High Elves, Dark Elves, Wood Elves, Orcs & Goblins, Tomb
+  Kings, Vampire Counts, Warriors of Chaos, Beastmen, Daemons, Skaven, Lizardmen, Ogres,
+  Chaos Dwarfs, Cathay, Renegade Crowns), pastes an army list, asks about a rule
+  interaction, a matchup, a points cost, a tournament or New Recruit / Old World Builder —
+  even if they don't say "Old World" explicitly.
 ---
 
 # Old World Tactician
