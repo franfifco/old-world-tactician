@@ -1,7 +1,7 @@
 {
   "name": "old-world-tactician",
   "displayName": "Old World Tactician",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Rules expert and coach for Warhammer: The Old World: live rules and army data lookups, army list review, theorycrafting with dice odds, opponent scouting, and New Recruit tournament data.",
   "author": { "name": "Francisco Antunes", "url": "https://github.com/franfifco" },
   "license": "MIT"

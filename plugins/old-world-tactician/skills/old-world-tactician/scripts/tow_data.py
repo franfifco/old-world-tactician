@@ -15,12 +15,12 @@ Usage:
   tow_data.py rule NAME [NAME ...] [--army ARMY]  special rule text (fuzzy match)
   tow_data.py items [ARMY] [--type T]    magic items (common + army-specific)
   tow_data.py item NAME [NAME ...]       magic items, with cost and text
-  tow_data.py spells [LORE]              spells, optionally for one lore
+  tow_data.py spells [LORE ...]          list lores, or the spells of one or more lores
   tow_data.py search TEXT                search every entry and profile name
 
 ARMY / UNIT / NAME are case-insensitive substrings; the best match wins and
 alternatives are listed when the match is ambiguous. unit, rule and item take
-several names, so look up everything a list needs in one call.
+several names (spells several lores), so look up everything a list needs in one call.
 """
 
 import argparse
@@ -399,6 +399,20 @@ def army_units(data, army):
         yield e, e
 
 
+def entry_cap(link):
+    """Army-wide limit on how many of this entry the list may include, e.g. 'max 1'."""
+    for c in link.get("constraints", []):
+        if (c.get("field") == "selections" and c.get("type") == "max" and c.get("value", -1) >= 0
+                and c.get("scope") in ("force", "roster")):
+            for m in link.get("modifiers", []):
+                if m.get("field") == c["id"] and m.get("type") == "increment" and m.get("repeats"):
+                    step, per = m["value"], m["repeats"][0].get("value")
+                    base = f"{c['value']} + " if c["value"] else ""
+                    return f"max {base}{step:g} per {per:,.0f} pts"
+            return f"max {c['value']}" if c["value"] else "not normally available"
+    return ""
+
+
 def cmd_units(data, args):
     army = data.find_army(args.army)
     print(f"# {army['name']}\n")
@@ -414,7 +428,9 @@ def cmd_units(data, args):
             if prof:
                 info = ", ".join(c.get("$text", "") for c in prof.get("characteristics", []))
             hidden = " (conditional)" if link.get("hidden") else ""
-            print(f"- {link['name']}: from {base_cost(data, t)} pts; {info}{hidden}")
+            cap = entry_cap(link)
+            cap = f" [{cap} in this category]" if cap else ""
+            print(f"- {link['name']}: from {base_cost(data, t)} pts; {info}{cap}{hidden}")
         print()
 
 
@@ -454,6 +470,34 @@ def all_profiles(data, roots=None):
                 yield node
 
 
+_RULE_PAGES = None
+
+
+def rules_page(name):
+    """Best tow.whfb.app page for a rule name, from the cached or bundled page index."""
+    global _RULE_PAGES
+    if _RULE_PAGES is None:
+        cached = os.path.join(CACHE, "rules", "index.json")
+        bundled = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "references", "rules-index.txt")
+        if os.path.exists(cached):
+            with open(cached) as f:
+                _RULE_PAGES = json.load(f)
+        elif os.path.exists(bundled):
+            with open(bundled) as f:
+                _RULE_PAGES = [l.strip() for l in f if l.strip()]
+        else:
+            _RULE_PAGES = []
+    base = name.split("(")[0]
+    slug = "-".join(base.lower().replace("\u2019", "").replace("'", "").replace("&", "").split())
+    if not slug:
+        return None
+    for prefix in ("/special-rules/", "/weapons-of-war/", "/"):
+        hits = [p for p in _RULE_PAGES if p.startswith(prefix) and p.rsplit("/", 1)[-1] == slug]
+        if hits:
+            return "https://tow.whfb.app" + min(hits, key=len)
+    return None
+
+
 def cmd_rule(data, args):
     roots = data.scope(data.find_army(args.army)) if args.army else None
     rules = [p for p in all_profiles(data, roots) if p.get("typeName") == "Special Rule"]
@@ -482,7 +526,8 @@ def cmd_rule(data, args):
         if (p["name"], text) in shown:
             continue
         shown.add((p["name"], text))
-        print(f"## {p['name']}  [{p['_root']}]\n{text}\n")
+        url = rules_page(p["name"])
+        print(f"## {p['name']}  [{p['_root']}]" + (f"\nRules page: {url}" if url else "") + f"\n{text}\n")
 
 
 def item_entries(data, roots):
@@ -643,7 +688,7 @@ def main():
     s = sub.add_parser("rule"); s.add_argument("name", nargs="+"); s.add_argument("--army")
     s = sub.add_parser("items"); s.add_argument("army", nargs="?"); s.add_argument("--type")
     s = sub.add_parser("item"); s.add_argument("name", nargs="+")
-    s = sub.add_parser("spells"); s.add_argument("lore", nargs="?")
+    s = sub.add_parser("spells"); s.add_argument("lore", nargs="*")
     s = sub.add_parser("search"); s.add_argument("text", nargs="+")
     args = ap.parse_args()
     if args.cmd == "sync":
@@ -652,7 +697,9 @@ def main():
     FULL = getattr(args, "full", False)
     data = Data()
     cmd = globals()[f"cmd_{args.cmd}"]
-    batch_key = {"unit": "unit", "rule": "name", "item": "name"}.get(args.cmd)
+    if args.cmd == "spells":
+        args.lore = args.lore or [None]
+    batch_key = {"unit": "unit", "rule": "name", "item": "name", "spells": "lore"}.get(args.cmd)
     if not batch_key:
         return cmd(data, args)
     names = getattr(args, batch_key)

@@ -9,11 +9,8 @@ during deployment) and actually use. Concrete beats comprehensive.
    Infamy, characters, wizards and lores, items, units with options). Players
    often use names from older Warhammer Fantasy editions or shorthand; find the
    TOW entry with `tow_data.py search` / `units` and state the mapping you used.
-   Quickly cost **both** lists: if either is far off the stated points, the
-   list you were given is probably incomplete or out of date — say so, and ask
-   for the full list, but still give the best report you can. Flag anything
-   that looks illegal (it may be a typo, or a real problem worth raising
-   politely before the game).
+   Assume both lists are legal and correctly costed; don't check points or
+   composition unless the user asks.
 2. Look up everything you aren't certain about, batched into a few calls
    (`unit`, `rule` and `item` each take many names): every special rule on their
    key units, every magic item, every spell in the lores they can take. The

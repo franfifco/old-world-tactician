@@ -1,8 +1,7 @@
 # Reviewing an army list
 
-A list review has two halves: **is it legal and correctly costed**, and **will it
-win games**. Do the first mechanically with the scripts, then spend most of your
-thinking on the second.
+Assume the list is legal and correctly costed: don't recompute points or check
+composition unless the user asks. Spend the effort on whether it will win games.
 
 ## 1. Parse
 
@@ -19,29 +18,11 @@ Write down, before analysing: army (and Army of Infamy if any), points limit,
 game mode / event rules, General, Battle Standard Bearer, wizards with level and
 lore, every unit with size and options.
 
-## 2. Validate
+## 2. Look up what matters
 
-Look up all the list's units in one call (`tow_data.py unit <army> "<unit 1>" "<unit 2>" ...`)
-and its magic items in another (`item "<item 1>" "<item 2>" ...`), then check:
-- Unit cost = per-model cost × models + options (watch per-model vs per-unit
-  options, champions/musicians/standards, mounts, and items).
-- The option exists for that unit and isn't conditional on something absent.
-- Unit size within limits.
-- Magic items within the character's allowance; magic standards only on units
-  that can take them; each named magic item at most once per army unless the
-  data says otherwise; one magic weapon/armour/etc. per character (check the
-  rules page for magic item rules if unsure).
-
-Then for the army:
-- `tow_data.py composition <army>`: category percentages and army-specific
-  per-1,000-point caps.
-- Combined Arms / Grand Melee extra limits if used (rules site, matched-play).
-  Combined Arms caps count copies of the **same unit entry** (e.g. max 4 of any
-  one Core unit at 2,000 pts), not the category total.
-- Total points ≤ limit.
-
-Report legality as a short table: entry, listed cost, computed cost, issue. If
-everything checks out, say so in one line and move on.
+Look up the list's units in one call (`tow_data.py unit <army> "<unit 1>" "<unit 2>" ...`)
+and its magic items in another (`item "<item 1>" "<item 2>" ...`), for their
+profiles and rules, not their costs.
 
 ## 3. Understand the plan
 
@@ -100,8 +81,10 @@ charge?", "how many turns does my cannon need to kill that dragon?").
 
 ## 5. Suggest changes
 
-- Keep the list legal and at (or just under) the points limit; show the maths
-  for every swap.
+- Show the points maths for every swap and keep the total at or under the limit.
+  Check only what the swap touches: the new option's cost and its limits
+  (`units` shows per-unit caps, `composition` category limits). The rest of the
+  list is assumed legal.
 - Explain what each change fixes and what it costs (the trade-off).
 - Offer 2–3 distinct directions when the list's identity is open ("more
   anvil", "more shooting", "faster"), and respect the user's theme and models.

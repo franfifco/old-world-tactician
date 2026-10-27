@@ -9,8 +9,10 @@ prints the URL to open with a web fetch tool instead.
 
 Usage:
   tow_rules.py search TERMS...    find rule pages whose path matches all terms
-  tow_rules.py get PATH|URL [--find TERMS] [--all]
-                                  print a page as plain text (e.g. special-rules/stubborn);
+  tow_rules.py get TOPIC [TOPIC ...] [--find TERMS] [--all]
+                                  print pages as plain text. A TOPIC is a path
+                                  (special-rules/stubborn), a URL, or plain words
+                                  ("unit strength") resolved to the best page;
                                   --find keeps only sections mentioning all TERMS (use it
                                   for faq and errata); long pages are cut unless --all
   tow_rules.py sections           list the top-level sections of the index
@@ -179,17 +181,37 @@ OFFLINE = False
 
 def search(terms):
     terms = [t.lower() for t in terms]
+    slug = "-".join(terms)
     paths = build_index()
     hits = [p for p in paths if all(t in p.lower() for t in terms)]
-    # Prefer shorter, more specific paths.
-    return sorted(hits, key=lambda p: (p.count("/"), len(p)))
+    # Prefer an exact page name, then rules sections over per-unit/army pages,
+    # then shorter, more specific paths.
+    return sorted(hits, key=lambda p: (p.rsplit("/", 1)[-1] != slug,
+                                       not p.rsplit("/", 1)[-1].startswith(slug),
+                                       p.split("/")[1] in ("unit", "army"),
+                                       p.count("/"), len(p)))
+
+
+def resolve(arg):
+    """A page path, a full URL, or plain words naming the topic."""
+    if arg.startswith(BASE):
+        return arg[len(BASE):]
+    candidate = "/" + arg.strip("/")
+    if "/" in arg.strip("/") or candidate in build_index():
+        return candidate
+    hits = search(arg.replace("-", " ").split())
+    if not hits:
+        return None
+    if len(hits) > 1:
+        print(f"(best match for '{arg}': {hits[0]}; others: {', '.join(hits[1:4])})")
+    return hits[0]
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("search"); s.add_argument("terms", nargs="+")
-    s = sub.add_parser("get"); s.add_argument("path")
+    s = sub.add_parser("get"); s.add_argument("path", nargs="+")
     s.add_argument("--find", nargs="+", metavar="TERM", help="only sections containing all terms")
     s.add_argument("--all", action="store_true", help="don't cut long pages")
     sub.add_parser("sections")
@@ -204,7 +226,22 @@ def main():
             print(f"\n(Offline: matched against the bundled page list. tow.whfb.app is not reachable "
                   f"from here, so open pages with your web fetch tool, e.g. {BASE}{hits[0] if hits else '/'})")
     elif args.cmd == "get":
-        cmd_get(args.path, args.find, args.all)
+        code = 0
+        for i, topic in enumerate(args.path):
+            if i:
+                print("\n" + "-" * 60 + "\n")
+            path = resolve(topic)
+            if not path:
+                print(f"No rules page matches '{topic}'. Try other words or `search`.")
+                code = max(code, 1)
+                continue
+            try:
+                cmd_get(path, args.find, args.all)
+            except SystemExit as e:  # keep going through the rest of the topics
+                if isinstance(e.code, str):
+                    print(e.code)
+                code = max(code, e.code if isinstance(e.code, int) else 1)
+        sys.exit(code)
     elif args.cmd == "sections":
         counts = {}
         for p in build_index():

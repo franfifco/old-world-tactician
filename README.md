@@ -8,8 +8,8 @@ Warhammer Fantasy rules.
 What it does:
 - **Rules questions**: looks up the official online rules index, FAQ and errata, and
   walks through interactions step by step.
-- **List review**: checks your army list for points and composition, explains its
-  game plan and weak spots, and suggests legal changes with the points maths.
+- **List review**: explains your army list's game plan and weak spots, and suggests
+  legal changes with the points maths. Lists you give it are assumed to be legal.
 - **Theorycrafting**: costs combinations of units, items and spells and compares them
   with exact dice odds.
 - **Opponent scouting**: finds the threats in an opponent's list and builds a game plan
@@ -91,7 +91,7 @@ python3 scripts/nr_api.py tournaments --status 3
 
 ## Example prompts
 
-- "Is this 2,000 pt Dwarf list legal for Combined Arms, and how does it handle dragons?" (paste the list)
+- "How does this 2,000 pt Dwarf list handle dragons?" (paste the list)
 - "My opponent plays Tomb Kings with a Casket of Souls and two Necrosphinxes. What should I watch for with my Wood Elves?"
 - "Sword of Might or Biting Blade on my Chaos Lord on Juggernaut?"
 - "Can a unit that fled as a charge reaction rally in the same turn?"
