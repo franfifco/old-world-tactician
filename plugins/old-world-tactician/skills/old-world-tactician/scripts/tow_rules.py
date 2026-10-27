@@ -3,6 +3,9 @@
 (https://tow.whfb.app), including matched play, FAQ and errata.
 
 Pages are fetched on demand and cached locally; no rules text is bundled.
+If this environment can't reach the site (e.g. a sandbox with a network
+allowlist), `search` falls back to a bundled list of page paths and `get`
+prints the URL to open with a web fetch tool instead.
 
 Usage:
   tow_rules.py search TERMS...    find rule pages whose path matches all terms
@@ -19,6 +22,7 @@ import os
 import re
 import sys
 import time
+import urllib.error
 import urllib.request
 
 BASE = "https://tow.whfb.app"
@@ -27,14 +31,32 @@ CACHE = os.path.join(
     "rules",
 )
 INDEX = os.path.join(CACHE, "index.json")
+BUNDLED_INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "references", "rules-index.txt")
 PAGE_MAX_AGE = 7 * 86400
+BLOCKED_EXIT = 3
+
+
+class Blocked(Exception):
+    """The rules site can't be reached from this environment."""
+
+
+def blocked_message(path):
+    return (f"NETWORK BLOCKED: tow.whfb.app can't be reached from this environment.\n"
+            f"Open this page with your web fetch tool instead: {BASE}{path}")
 
 
 def fetch(path):
     url = path if path.startswith("http") else BASE + "/" + path.lstrip("/")
     req = urllib.request.Request(url, headers={"User-Agent": "old-world-tactician"})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        return r.read().decode("utf-8", "replace")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            raise
+        raise Blocked(f"HTTP {e.code}") from e  # e.g. a sandbox egress proxy refusing the host
+    except (urllib.error.URLError, OSError) as e:
+        raise Blocked(str(e)) from e
 
 
 def build_index(force=False):
@@ -45,9 +67,16 @@ def build_index(force=False):
     for page in ("/", "/sitemap", "/sitemap/armies"):
         try:
             paths |= set(re.findall(r'href="(/[a-z0-9][^"#?]*)"', fetch(page)))
-        except Exception as e:
-            print(f"warning: could not read {page}: {e}", file=sys.stderr)
+        except (Blocked, urllib.error.HTTPError):
+            break
     paths = sorted(p for p in paths if not p.startswith(("/_next", "/icons", "/api")))
+    if not paths:
+        # Offline: use the bundled path list, and don't cache it so the
+        # live index is picked up as soon as the site is reachable.
+        global OFFLINE
+        OFFLINE = True
+        with open(BUNDLED_INDEX) as f:
+            return [l.strip() for l in f if l.strip()]
     os.makedirs(CACHE, exist_ok=True)
     with open(INDEX, "w") as f:
         json.dump(paths, f)
@@ -89,6 +118,9 @@ def cmd_get(path):
             missing = "<title>Loading..." in raw or len(page_text(raw)) < 40
         except urllib.error.HTTPError:
             missing = True
+        except Blocked:
+            print(blocked_message(path))
+            sys.exit(BLOCKED_EXIT)
         if missing:
             words = [w for w in path.strip("/").split("/")[-1].split("-") if len(w) > 2]
             hits = search(words) or search(words[-1:])
@@ -99,6 +131,9 @@ def cmd_get(path):
             f.write(text)
     print(f"Source: {BASE}{path}\n")
     print(text)
+
+
+OFFLINE = False
 
 
 def search(terms):
@@ -122,6 +157,9 @@ def main():
         print("\n".join(hits[:40]) or "No matching pages. Try fewer or shorter terms, or `sections`.")
         if len(hits) > 40:
             print(f"... {len(hits) - 40} more")
+        if OFFLINE:
+            print(f"\n(Offline: matched against the bundled page list. tow.whfb.app is not reachable "
+                  f"from here, so open pages with your web fetch tool, e.g. {BASE}{hits[0] if hits else '/'})")
     elif args.cmd == "get":
         cmd_get(args.path)
     elif args.cmd == "sections":

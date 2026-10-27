@@ -38,6 +38,11 @@ import urllib.request
 
 API = "https://www.newrecruit.eu/api"
 SERVICE = "old-world-tactician-newrecruit"
+NOT_REACHABLE = (
+    "NETWORK BLOCKED: www.newrecruit.eu can't be reached from this environment. "
+    "Tournament features need Claude Code on the user's own computer (network access "
+    "plus their keychain). Tell the user once and carry on without tournament data."
+)
 CONFIG = os.path.join(os.path.expanduser("~"), ".config", "old-world-tactician", "newrecruit.json")
 SYSTEM_CACHE = os.path.join(
     os.environ.get("TOW_CACHE_DIR", os.path.join(os.path.expanduser("~"), ".cache", "old-world-tactician")),
@@ -90,7 +95,9 @@ def credentials():
             "New Recruit API credentials not found.\n"
             "Store them in your OS keychain by running this yourself in a terminal:\n"
             f"  python3 {os.path.abspath(__file__)} login\n"
-            "API access must be enabled for your account by the New Recruit team."
+            "API access must be enabled for your account by the New Recruit team.\n"
+            "If this is a Claude chat or cloud session, tournament features aren't available "
+            "here: run them from Claude Code on your own computer."
         )
     return login, password
 
@@ -157,7 +164,12 @@ def call(endpoint, body=None):
             data = json.loads(r.read() or b"null")
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "replace")[:500]
-        sys.exit(f"New Recruit API error {e.code} on /{endpoint}: {detail}")
+        try:
+            data = json.loads(detail)  # New Recruit answers errors in JSON
+        except ValueError:
+            sys.exit(NOT_REACHABLE + f"\n(HTTP {e.code}: {detail[:200]})")
+    except (urllib.error.URLError, OSError) as e:
+        sys.exit(NOT_REACHABLE + f"\n({e})")
     if isinstance(data, dict) and (data.get("message") or data.get("error")) and len(data) == 1:
         sys.exit(f"New Recruit API: {data.get('message') or data.get('error')}")
     return data

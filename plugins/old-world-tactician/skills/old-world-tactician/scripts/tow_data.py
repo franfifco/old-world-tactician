@@ -83,7 +83,18 @@ def sync(force=False, quiet=False):
         stamp["fetched"] = time.time()
     else:
         print(f"Downloading {REPO} ...", file=sys.stderr)
-        blob = _get(TARBALL)
+        try:
+            blob = _get(TARBALL)
+        except Exception as e:
+            if os.path.isdir(DATA_DIR) and os.listdir(DATA_DIR):
+                print(f"warning: could not refresh army data ({e}); using the cached copy "
+                      f"from {time.strftime('%Y-%m-%d', time.localtime(stamp.get('fetched', 0)))}.",
+                      file=sys.stderr)
+                return
+            sys.exit("NETWORK BLOCKED: can't download the army data from GitHub "
+                     f"({TARBALL}): {e}\nThis environment needs access to codeload.github.com "
+                     "and api.github.com. Without it, answer from the official rules site via "
+                     "web fetch and say that points/profiles couldn't be checked against the data.")
         os.makedirs(DATA_DIR, exist_ok=True)
         for name in os.listdir(DATA_DIR):
             os.remove(os.path.join(DATA_DIR, name))
