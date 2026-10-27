@@ -30,22 +30,39 @@ cache it in `~/.cache/old-world-tactician/`:
 
 ## Install
 
-**Claude Code**: clone into your skills folder:
-```bash
-git clone https://github.com/<you>/old-world-tactician ~/.claude/skills/old-world-tactician
-```
+This repo is a Claude plugin marketplace with one plugin, so installs update from GitHub.
 
-**Claude.ai / Claude desktop**: zip the folder and upload it under Settings → Capabilities → Skills.
+**Claude.ai / Claude desktop (also gives you Claude Code)**
+1. Go to **Customize → Plugins → Add → Add marketplace** and enter `franfifco/old-world-tactician`.
+   For a private repo, connect GitHub when asked and give the Claude GitHub App access to it.
+2. Add the **old-world-tactician** plugin from that marketplace.
+3. On the marketplace, turn on **Sync automatically** so pushes to `main` reach your account.
+
+Plugins added this way are saved to your Claude account and also load in Claude Code
+(as a synced plugin, the next time you start a session).
+
+**Claude Code only**
+```bash
+claude plugin marketplace add franfifco/old-world-tactician
+claude plugin install old-world-tactician@franfifco-tow
+```
+Enable auto-update for the marketplace in `/plugin` → Marketplaces, or run
+`claude plugin marketplace update franfifco-tow`.
 
 Requires Python 3.8+ (standard library only).
+
+### Releasing a change
+
+Edit files under `plugins/old-world-tactician/`, bump `version` in
+`plugins/old-world-tactician/.claude-plugin/plugin.json`, commit and push to `main`.
 
 ### New Recruit API (optional)
 
 The tournament features need a New Recruit account with API access enabled by the New
 Recruit team. Store your credentials in the OS keychain by running this yourself in a
-terminal:
+terminal (from a clone of this repo, or ask Claude for the installed path):
 ```bash
-python3 ~/.claude/skills/old-world-tactician/scripts/nr_api.py login
+python3 plugins/old-world-tactician/skills/old-world-tactician/scripts/nr_api.py login
 ```
 On macOS the password goes straight into your login Keychain via Apple's `security`
 tool, so it never appears in a file, your shell history or Claude's conversation. On
@@ -58,6 +75,7 @@ which is only read if it is `chmod 600`.
 
 ## Scripts
 
+Run from `plugins/old-world-tactician/skills/old-world-tactician/`:
 ```bash
 python3 scripts/tow_rules.py search charge reaction      # find rules pages
 python3 scripts/tow_rules.py get special-rules/stubborn  # read one

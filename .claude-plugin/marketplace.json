@@ -1,0 +1,14 @@
+{
+  "name": "franfifco-tow",
+  "description": "Francisco's Claude plugins for Warhammer: The Old World.",
+  "owner": {
+    "name": "Francisco Antunes"
+  },
+  "plugins": [
+    {
+      "name": "old-world-tactician",
+      "source": "./plugins/old-world-tactician",
+      "description": "Rules expert and coach for Warhammer: The Old World."
+    }
+  ]
+}

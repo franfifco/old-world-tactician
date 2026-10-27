@@ -15,8 +15,10 @@ access; don't try other accounts or workarounds.
 The recommended setup is the OS keychain. The user runs this **themselves, in
 their own terminal** (it is interactive and refuses to run without one):
 ```
-python3 scripts/nr_api.py login
+python3 <skill folder>/scripts/nr_api.py login
 ```
+Give the user the real path: expand `${CLAUDE_SKILL_DIR}` before showing it,
+since they will paste it into their own terminal.
 On macOS the password is typed into the `security` tool's own prompt and goes
 straight into the login Keychain; it never passes through the script, the shell
 history or a command line. Elsewhere it uses the `keyring` package if installed.

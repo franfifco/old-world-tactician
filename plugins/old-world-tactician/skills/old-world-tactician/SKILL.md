@@ -37,23 +37,24 @@ with an errata), point it out and prefer the official rules site.
 
 ## Tools
 
-All scripts are in `scripts/` (Python 3 standard library only). Data is fetched on
+All scripts are in this skill's `scripts/` folder, `${CLAUDE_SKILL_DIR}/scripts/`
+(Python 3 standard library only). Data is fetched on
 first use and cached in `~/.cache/old-world-tactician/`; the first call takes a
 few seconds.
 
 | Need | Command |
 |---|---|
-| Core rules, matched play, FAQ, errata | `python3 scripts/tow_rules.py search charge reaction` then `get the-movement-phase/charge-reactions` (also `get faq`, `get errata`, `sections`) |
-| Armies available (incl. Armies of Infamy) | `python3 scripts/tow_data.py armies` |
-| Composition limits (category %, per-1,000 caps) | `python3 scripts/tow_data.py composition "dark elves"` |
-| Units in an army, category & starting cost | `python3 scripts/tow_data.py units "dark elves"` |
-| Full unit entry: profiles, equipment, options, costs, mounts | `python3 scripts/tow_data.py unit "dark elves" "cold one knights" --rules` |
-| Special rule text | `python3 scripts/tow_data.py rule "stubborn"` (`--army` to scope) |
-| Magic items an army can take / one item | `python3 scripts/tow_data.py items "empire" --type weapon`, `item "sword of might"` |
-| Spells | `python3 scripts/tow_data.py spells` (list lores), `spells "dark magic"` |
-| Anything by name | `python3 scripts/tow_data.py search hydra` |
-| Damage odds | `python3 scripts/dice.py -n 12 --hit 3 --wound 4 --save 5` (see `--help`) |
-| Tournaments & lists from New Recruit | `python3 scripts/nr_api.py tournaments`, `lists ID`, `reports --tournament ID` |
+| Core rules, matched play, FAQ, errata | `python3 ${CLAUDE_SKILL_DIR}/scripts/tow_rules.py search charge reaction` then `get the-movement-phase/charge-reactions` (also `get faq`, `get errata`, `sections`) |
+| Armies available (incl. Armies of Infamy) | `python3 ${CLAUDE_SKILL_DIR}/scripts/tow_data.py armies` |
+| Composition limits (category %, per-1,000 caps) | `python3 ${CLAUDE_SKILL_DIR}/scripts/tow_data.py composition "dark elves"` |
+| Units in an army, category & starting cost | `python3 ${CLAUDE_SKILL_DIR}/scripts/tow_data.py units "dark elves"` |
+| Full unit entry: profiles, equipment, options, costs, mounts | `python3 ${CLAUDE_SKILL_DIR}/scripts/tow_data.py unit "dark elves" "cold one knights" --rules` |
+| Special rule text | `python3 ${CLAUDE_SKILL_DIR}/scripts/tow_data.py rule "stubborn"` (`--army` to scope) |
+| Magic items an army can take / one item | `python3 ${CLAUDE_SKILL_DIR}/scripts/tow_data.py items "empire" --type weapon`, `item "sword of might"` |
+| Spells | `python3 ${CLAUDE_SKILL_DIR}/scripts/tow_data.py spells` (list lores), `spells "dark magic"` |
+| Anything by name | `python3 ${CLAUDE_SKILL_DIR}/scripts/tow_data.py search hydra` |
+| Damage odds | `python3 ${CLAUDE_SKILL_DIR}/scripts/dice.py -n 12 --hit 3 --wound 4 --save 5` (see `--help`) |
+| Tournaments & lists from New Recruit | `python3 ${CLAUDE_SKILL_DIR}/scripts/nr_api.py tournaments`, `lists ID`, `reports --tournament ID` |
 
 Notes on reading the army data (from the BSData repo New Recruit uses):
 - `(conditional: with X)` = the option is only available when X is present (a
