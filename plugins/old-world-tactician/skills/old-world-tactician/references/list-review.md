@@ -21,7 +21,8 @@ lore, every unit with size and options.
 
 ## 2. Validate
 
-For each entry run `tow_data.py unit <army> <unit>` and check:
+Look up all the list's units in one call (`tow_data.py unit <army> "<unit 1>" "<unit 2>" ...`)
+and its magic items in another (`item "<item 1>" "<item 2>" ...`), then check:
 - Unit cost = per-model cost × models + options (watch per-model vs per-unit
   options, champions/musicians/standards, mounts, and items).
 - The option exists for that unit and isn't conditional on something absent.

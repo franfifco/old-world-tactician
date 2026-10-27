@@ -11,15 +11,16 @@ Usage:
   tow_data.py armies                     list army books and army-of-infamy lists
   tow_data.py composition ARMY           category % limits and army-specific restrictions
   tow_data.py units ARMY                 units in an army with category and base cost
-  tow_data.py unit ARMY UNIT             full entry: profiles, rules, options, costs
-  tow_data.py rule NAME [--army ARMY]    special rule text (fuzzy match)
+  tow_data.py unit ARMY UNIT [UNIT ...]  full entries: profiles, rules, options, costs
+  tow_data.py rule NAME [NAME ...] [--army ARMY]  special rule text (fuzzy match)
   tow_data.py items [ARMY] [--type T]    magic items (common + army-specific)
-  tow_data.py item NAME                  one magic item, with cost and text
+  tow_data.py item NAME [NAME ...]       magic items, with cost and text
   tow_data.py spells [LORE]              spells, optionally for one lore
   tow_data.py search TEXT                search every entry and profile name
 
 ARMY / UNIT / NAME are case-insensitive substrings; the best match wins and
-alternatives are listed when the match is ambiguous.
+alternatives are listed when the match is ambiguous. unit, rule and item take
+several names, so look up everything a list needs in one call.
 """
 
 import argparse
@@ -234,12 +235,24 @@ def limits(node):
     return f" [{lo or 0}-{'' if hi is None else hi}]"
 
 
-def profile_line(p):
+def profile_line(p, compact=False):
+    """One-line profile. compact drops empty fields and shortens long notes
+    (used inside `unit` trees; `rule` / `item` print the full text)."""
     chars = p.get("characteristics", [])
     if p.get("typeName") in ("Model",) or all(len(c["name"]) <= 3 for c in chars):
         stats = " ".join(f"{c['name']}{c.get('$text', '')}" for c in chars)
         return f"{p['name']}: {stats}"
-    parts = [f"{c['name']}: {c.get('$text', '').strip()}" for c in chars if c.get("$text")]
+    if compact and p.get("typeName") == "Base":
+        return "base " + " ".join(c.get("$text", "") for c in chars)
+    parts = []
+    for c in chars:
+        text = " ".join(c.get("$text", "").split())
+        if compact and text in ("", "-", "N/A"):
+            continue
+        if compact and len(text) > 140:
+            text = text[:130].rsplit(" ", 1)[0] + " …"
+        if text:
+            parts.append(f"{c['name']}: {text}")
     return f"{p['name']} ({p.get('typeName')}): " + " | ".join(parts)
 
 
@@ -318,14 +331,21 @@ def render(data, node, link=None, depth=0, seen=None, rule_names=None, out=None,
     for p in gather_profiles(data, node):
         if p.get("typeName") == "Special Rule":
             src = owner if depth else ("a mount or option" if p.get("_cond") else None)
-            rule_names.setdefault(p["name"], (p, src))
+            # The unit's own rules: on the entry itself or its models, unconditionally.
+            own = depth <= 1 and not p.get("_cond")
+            rule_names.setdefault(p["name"], (p, src, own))
             out.append(f"{ind}    rule: {p['name']}" + (" (conditional)" if p.get("_cond") else ""))
         elif p.get("typeName") == "Command":
             out.append(f"{ind}    ({p['name']})")
         else:
-            out.append(f"{ind}    {profile_line(p)}")
+            out.append(f"{ind}    {profile_line(p, compact=not FULL)}")
     if not FULL and "mount" in parent.lower() and node.get("type") == "model":
-        return out  # mount profile and rules are enough; skip crew/weapon detail
+        # Mount profile and rules, plus a one-line list of its gear (armour matters for saves).
+        gear = [f"{lk.get('name') or ch.get('name')}" + (f" {pts(ch) or pts(lk)} pts" if (pts(ch) or pts(lk)) else "")
+                for lk, ch in children(data, node)]
+        if gear:
+            out.append(f"{ind}    gear: {', '.join(gear)}  (--full for profiles)")
+        return out
     for lk, child in children(data, node):
         render(data, child, lk, depth + 1, seen, rule_names, out, parent=name)
     return out
@@ -410,11 +430,18 @@ def cmd_unit(data, args):
     print("\n".join(render(data, entry, link, rule_names=rules)))
     if args.rules and rules:
         print("\n## Special rules")
-        for name, (p, owner) in rules.items():
-            src = f"  (from: {owner} — only if taken)" if owner else ""
-            print(f"\n### {name}{src}\n{rule_text(p)}")
+        others = []
+        for name, (p, owner, own) in rules.items():
+            if own or args.full:
+                src = f"  (from: {owner} — only if taken)" if owner and not own else ""
+                print(f"\n### {name}{src}\n{rule_text(p)}")
+            else:
+                others.append(f"{name} ({owner})")
+        if others:
+            print("\nFrom mounts/options, only if taken (text: `rule NAME`, or --full): "
+                  + "; ".join(others))
     elif rules:
-        print("\n(Use --rules to include special rule text.)")
+        print("\n(Use --rules to include the unit's special rule text.)")
 
 
 def all_profiles(data, roots=None):
@@ -589,7 +616,7 @@ def cmd_composition(data, args):
 
 
 def cmd_search(data, args):
-    q = args.text.lower()
+    q = " ".join(args.text).lower()
     hits = {}
     for node in data.by_id.values():
         if q in node["name"].lower() and "targetId" not in node:
@@ -610,21 +637,35 @@ def main():
     sub.add_parser("armies")
     s = sub.add_parser("composition"); s.add_argument("army")
     s = sub.add_parser("units"); s.add_argument("army")
-    s = sub.add_parser("unit"); s.add_argument("army"); s.add_argument("unit")
+    s = sub.add_parser("unit"); s.add_argument("army"); s.add_argument("unit", nargs="+")
     s.add_argument("--rules", action="store_true", help="include special rule text")
     s.add_argument("--full", action="store_true", help="expand magic item option groups")
-    s = sub.add_parser("rule"); s.add_argument("name"); s.add_argument("--army")
+    s = sub.add_parser("rule"); s.add_argument("name", nargs="+"); s.add_argument("--army")
     s = sub.add_parser("items"); s.add_argument("army", nargs="?"); s.add_argument("--type")
-    s = sub.add_parser("item"); s.add_argument("name")
+    s = sub.add_parser("item"); s.add_argument("name", nargs="+")
     s = sub.add_parser("spells"); s.add_argument("lore", nargs="?")
-    s = sub.add_parser("search"); s.add_argument("text")
+    s = sub.add_parser("search"); s.add_argument("text", nargs="+")
     args = ap.parse_args()
     if args.cmd == "sync":
         return sync(force=args.force)
     global FULL
     FULL = getattr(args, "full", False)
     data = Data()
-    globals()[f"cmd_{args.cmd}"](data, args)
+    cmd = globals()[f"cmd_{args.cmd}"]
+    batch_key = {"unit": "unit", "rule": "name", "item": "name"}.get(args.cmd)
+    if not batch_key:
+        return cmd(data, args)
+    names = getattr(args, batch_key)
+    for i, name in enumerate(names):
+        if i:
+            print("\n" + "-" * 60 + "\n")
+        setattr(args, batch_key, name)
+        try:
+            cmd(data, args)
+        except SystemExit as e:  # a miss shouldn't abort the rest of the batch
+            if len(names) == 1:
+                raise
+            print(e.code)
 
 
 if __name__ == "__main__":

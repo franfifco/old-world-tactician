@@ -9,7 +9,10 @@ prints the URL to open with a web fetch tool instead.
 
 Usage:
   tow_rules.py search TERMS...    find rule pages whose path matches all terms
-  tow_rules.py get PATH|URL       print a page as plain text (e.g. special-rules/stubborn)
+  tow_rules.py get PATH|URL [--find TERMS] [--all]
+                                  print a page as plain text (e.g. special-rules/stubborn);
+                                  --find keeps only sections mentioning all TERMS (use it
+                                  for faq and errata); long pages are cut unless --all
   tow_rules.py sections           list the top-level sections of the index
   tow_rules.py refresh            re-download the page index
 """
@@ -33,6 +36,7 @@ CACHE = os.path.join(
 INDEX = os.path.join(CACHE, "index.json")
 BUNDLED_INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "references", "rules-index.txt")
 PAGE_MAX_AGE = 7 * 86400
+MAX_CHARS = 8000  # ~2k tokens; long pages (FAQ is ~100k chars) need --find or --all
 BLOCKED_EXIT = 3
 
 
@@ -100,10 +104,39 @@ def page_text(raw):
         end = text.find(marker)
         if end != -1:
             text = text[:end]
-    return text.replace("URL Copied!", "").strip()
+    text = text.replace("URL Copied!", "")
+    chrome = ("- - - - -", "# Warhammer: The Old World Online Rules Index", "BackSource:",
+              "Source: Official Warhammer: The Old World FAQ")
+    return "\n".join(l for l in text.splitlines() if not l.startswith(chrome)).strip()
 
 
-def cmd_get(path):
+def find_sections(text, terms):
+    """Sections (split at headings) that mention every term, with their parent heading."""
+    terms = [t.lower() for t in terms]
+    blocks, parent, cur = [], "", []
+    for line in text.splitlines():
+        if line.startswith("#"):
+            if cur:
+                blocks.append((parent, cur))
+            if line.startswith("## "):
+                parent = line
+            cur = [line]
+        else:
+            cur.append(line)
+    if cur:
+        blocks.append((parent, cur))
+    out, last_parent = [], None
+    for parent, lines in blocks:
+        body = "\n".join(lines)
+        if all(t in body.lower() for t in terms):
+            if parent and parent != lines[0] and parent != last_parent:
+                out.append(parent)
+            last_parent = parent
+            out.append(body)
+    return "\n\n".join(out)
+
+
+def cmd_get(path, find=None, show_all=False):
     if path.startswith(BASE):
         path = path[len(BASE):]
     path = "/" + path.strip("/")
@@ -130,7 +163,15 @@ def cmd_get(path):
         with open(cached, "w") as f:
             f.write(text)
     print(f"Source: {BASE}{path}\n")
-    print(text)
+    if find:
+        hits = find_sections(text, find)
+        print(hits or f"No section mentions all of: {' '.join(find)}. Try fewer or different terms.")
+    elif len(text) > MAX_CHARS and not show_all:
+        print(text[:MAX_CHARS])
+        print(f"\n[Cut at {MAX_CHARS} of {len(text)} characters. Use --find TERMS to pull the "
+              f"relevant sections, or --all for everything.]")
+    else:
+        print(text)
 
 
 OFFLINE = False
@@ -149,6 +190,8 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("search"); s.add_argument("terms", nargs="+")
     s = sub.add_parser("get"); s.add_argument("path")
+    s.add_argument("--find", nargs="+", metavar="TERM", help="only sections containing all terms")
+    s.add_argument("--all", action="store_true", help="don't cut long pages")
     sub.add_parser("sections")
     sub.add_parser("refresh")
     args = ap.parse_args()
@@ -161,7 +204,7 @@ def main():
             print(f"\n(Offline: matched against the bundled page list. tow.whfb.app is not reachable "
                   f"from here, so open pages with your web fetch tool, e.g. {BASE}{hits[0] if hits else '/'})")
     elif args.cmd == "get":
-        cmd_get(args.path)
+        cmd_get(args.path, args.find, args.all)
     elif args.cmd == "sections":
         counts = {}
         for p in build_index():

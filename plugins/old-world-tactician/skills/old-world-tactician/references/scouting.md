@@ -14,7 +14,8 @@ during deployment) and actually use. Concrete beats comprehensive.
    for the full list, but still give the best report you can. Flag anything
    that looks illegal (it may be a typo, or a real problem worth raising
    politely before the game).
-2. Look up everything you aren't certain about: every special rule on their
+2. Look up everything you aren't certain about, batched into a few calls
+   (`unit`, `rule` and `item` each take many names): every special rule on their
    key units, every magic item, every spell in the lores they can take. The
    surprises in TOW live in army special rules and magic items.
 3. If you have the user's own list, look up its key units too, so the
