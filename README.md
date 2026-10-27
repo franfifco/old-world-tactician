@@ -42,12 +42,19 @@ Requires Python 3.8+ (standard library only).
 ### New Recruit API (optional)
 
 The tournament features need a New Recruit account with API access enabled by the New
-Recruit team. Then either set `NR_LOGIN` / `NR_PASSWORD`, or create
-`~/.config/old-world-tactician/newrecruit.json`:
-```json
-{"login": "your-user", "password": "your-password"}
+Recruit team. Store your credentials in the OS keychain by running this yourself in a
+terminal:
+```bash
+python3 ~/.claude/skills/old-world-tactician/scripts/nr_api.py login
 ```
-and `chmod 600` it.
+On macOS the password goes straight into your login Keychain via Apple's `security`
+tool, so it never appears in a file, your shell history or Claude's conversation. On
+Windows/Linux it uses the [`keyring`](https://pypi.org/project/keyring/) package if
+installed. `nr_api.py logout` removes it.
+
+Fallbacks: `NR_LOGIN` / `NR_PASSWORD` environment variables, or
+`~/.config/old-world-tactician/newrecruit.json` (`{"login": ..., "password": ...}`),
+which is only read if it is `chmod 600`.
 
 ## Scripts
 

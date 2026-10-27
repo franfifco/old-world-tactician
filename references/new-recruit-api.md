@@ -12,14 +12,27 @@ enabled for API access**. Without that, every endpoint returns
 Ask the user to contact New Recruit (their Discord or site contact) to request
 access; don't try other accounts or workarounds.
 
-Configure once, either:
+The recommended setup is the OS keychain. The user runs this **themselves, in
+their own terminal** (it is interactive and refuses to run without one):
 ```
-export NR_LOGIN=yourname
-export NR_PASSWORD=yourpassword
+python3 scripts/nr_api.py login
 ```
-or create `~/.config/old-world-tactician/newrecruit.json` with
-`{"login": "...", "password": "..."}` and `chmod 600` it. Never ask the user to
-paste their password into the chat; have them set it up themselves.
+On macOS the password is typed into the `security` tool's own prompt and goes
+straight into the login Keychain; it never passes through the script, the shell
+history or a command line. Elsewhere it uses the `keyring` package if installed.
+`nr_api.py logout` removes it.
+
+Fallbacks, in lookup order after the environment: `NR_LOGIN` / `NR_PASSWORD`
+environment variables (handy for CI), then
+`~/.config/old-world-tactician/newrecruit.json` (`{"login": ..., "password": ...}`),
+which is ignored unless it is `chmod 600`.
+
+Credential hygiene for you (Claude):
+- Never ask the user to paste their password into the chat, and never run
+  `login` on their behalf or pipe a password into it.
+- Never print, echo or inspect the credentials (no `security find-generic-password -w`,
+  no `cat` of the config file, no `env | grep NR_`). Just run `nr_api.py` commands;
+  if they fail with a credentials error, point the user to `login`.
 
 ## Endpoints (all POST, JSON body)
 

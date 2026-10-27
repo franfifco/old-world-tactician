@@ -2,11 +2,15 @@
 """Client for the New Recruit tournament API (https://www.newrecruit.eu).
 
 The API needs a New Recruit account that the NR team has enabled for API
-access. Credentials are read from the environment (NR_LOGIN, NR_PASSWORD) or
-from ~/.config/old-world-tactician/newrecruit.json:
-  {"login": "...", "password": "..."}
+access. Credentials are looked up in this order:
+  1. NR_LOGIN / NR_PASSWORD environment variables
+  2. the OS keychain (macOS Keychain; elsewhere via the optional `keyring` package)
+  3. ~/.config/old-world-tactician/newrecruit.json, only if chmod 600
 
 Usage:
+  nr_api.py login                              store credentials in the keychain (interactive;
+                                               run it yourself in a terminal)
+  nr_api.py logout                             remove them from the keychain
   nr_api.py systems                            list game systems (id, name)
   nr_api.py tournaments [--start D] [--end D] [--status N] [--page N] [--system ID]
                                                tournaments for The Old World (default: last 90 days)
@@ -22,13 +26,18 @@ Status values: 0 pending, 1 open, 2 ongoing, 3 closed.
 
 import argparse
 import datetime as dt
+import getpass
 import json
 import os
+import re
+import shutil
+import subprocess
 import sys
 import urllib.error
 import urllib.request
 
 API = "https://www.newrecruit.eu/api"
+SERVICE = "old-world-tactician-newrecruit"
 CONFIG = os.path.join(os.path.expanduser("~"), ".config", "old-world-tactician", "newrecruit.json")
 SYSTEM_CACHE = os.path.join(
     os.environ.get("TOW_CACHE_DIR", os.path.join(os.path.expanduser("~"), ".cache", "old-world-tactician")),
@@ -36,20 +45,98 @@ SYSTEM_CACHE = os.path.join(
 )
 
 
+# --------------------------------------------------------------------------
+# Credentials: environment -> OS keychain -> config file (owner-only).
+# The password is never printed, logged or passed on a command line.
+
+def _keychain_read():
+    if sys.platform == "darwin" and shutil.which("security"):
+        attrs = subprocess.run(["security", "find-generic-password", "-s", SERVICE],
+                               capture_output=True, text=True)
+        if attrs.returncode != 0:
+            return None, None
+        m = re.search(r'"acct"<blob>="(.*)"', attrs.stdout)
+        pw = subprocess.run(["security", "find-generic-password", "-s", SERVICE, "-w"],
+                            capture_output=True, text=True)
+        if m and pw.returncode == 0:
+            return m.group(1), pw.stdout.rstrip("\n")
+        return None, None
+    try:
+        import keyring  # optional, for Windows / Linux secret stores
+    except ImportError:
+        return None, None
+    login = keyring.get_password(SERVICE, "__login__")
+    return login, keyring.get_password(SERVICE, login) if login else None
+
+
+def _config_read():
+    if not os.path.exists(CONFIG):
+        return None, None
+    if os.name == "posix" and os.stat(CONFIG).st_mode & 0o077:
+        sys.exit(f"Refusing to read {CONFIG}: it is readable by other users. Run: chmod 600 '{CONFIG}'")
+    with open(CONFIG) as f:
+        cfg = json.load(f)
+    return cfg.get("login"), cfg.get("password")
+
+
 def credentials():
     login, password = os.environ.get("NR_LOGIN"), os.environ.get("NR_PASSWORD")
-    if not (login and password) and os.path.exists(CONFIG):
-        with open(CONFIG) as f:
-            cfg = json.load(f)
-        login, password = cfg.get("login"), cfg.get("password")
+    if not (login and password):
+        login, password = _keychain_read()
+    if not (login and password):
+        login, password = _config_read()
     if not (login and password):
         sys.exit(
             "New Recruit API credentials not found.\n"
-            "Set NR_LOGIN and NR_PASSWORD, or create " + CONFIG + "\n"
-            'containing {"login": "...", "password": "..."} (chmod 600).\n'
+            "Store them in your OS keychain by running this yourself in a terminal:\n"
+            f"  python3 {os.path.abspath(__file__)} login\n"
             "API access must be enabled for your account by the New Recruit team."
         )
     return login, password
+
+
+def cmd_login():
+    if not sys.stdin.isatty():
+        sys.exit("`login` is interactive: run it yourself in a terminal so the password "
+                 "is typed only into the keychain prompt.")
+    login = input("New Recruit username: ").strip()
+    if not login:
+        sys.exit("No username given.")
+    if sys.platform == "darwin" and shutil.which("security"):
+        subprocess.run(["security", "delete-generic-password", "-s", SERVICE],
+                       capture_output=True)
+        print("macOS will now ask for the password (typed twice); it goes straight into your login keychain.")
+        # A trailing -w with no value makes `security` prompt for the password itself.
+        r = subprocess.run(["security", "add-generic-password", "-s", SERVICE, "-a", login,
+                            "-l", "New Recruit API (old-world-tactician)", "-w"])
+        if r.returncode != 0:
+            sys.exit("Could not save to the keychain.")
+    else:
+        try:
+            import keyring
+        except ImportError:
+            sys.exit("No OS keychain available. Install the `keyring` package "
+                     "(pip install keyring), or use NR_LOGIN / NR_PASSWORD.")
+        keyring.set_password(SERVICE, "__login__", login)
+        keyring.set_password(SERVICE, login, getpass.getpass("New Recruit password: "))
+    print("Saved. The first API call may show a keychain access prompt; choose 'Always Allow' "
+          "for python3 if you don't want to be asked each time.")
+
+
+def cmd_logout():
+    if sys.platform == "darwin" and shutil.which("security"):
+        r = subprocess.run(["security", "delete-generic-password", "-s", SERVICE], capture_output=True)
+        print("Removed from keychain." if r.returncode == 0 else "Nothing stored in the keychain.")
+    else:
+        try:
+            import keyring
+            login = keyring.get_password(SERVICE, "__login__")
+            if login:
+                keyring.delete_password(SERVICE, login)
+                keyring.delete_password(SERVICE, "__login__")
+            print("Removed from keyring." if login else "Nothing stored in the keyring.")
+        except ImportError:
+            print("No keyring available; nothing to remove.")
 
 
 def call(endpoint, body=None):
@@ -106,6 +193,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", help="write JSON to this file")
     sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("login")
+    sub.add_parser("logout")
     sub.add_parser("systems")
     s = sub.add_parser("tournaments")
     today = dt.date.today()
@@ -122,6 +211,10 @@ def main():
     g.add_argument("--player")
     args = ap.parse_args()
 
+    if args.cmd == "login":
+        return cmd_login()
+    if args.cmd == "logout":
+        return cmd_logout()
     if args.cmd == "systems":
         data = call("systems")
     elif args.cmd == "tournaments":
